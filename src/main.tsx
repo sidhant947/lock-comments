@@ -1,27 +1,43 @@
-import { Devvit } from '@devvit/public-api';
+import { Devvit, SettingScope } from '@devvit/public-api';
 
 Devvit.configure({
   redditAPI: true,
 });
 
-async function toggleCommentLock(event: { targetId: any; }, context: { reddit: any; ui: any; }) {
+
+Devvit.addSettings([
+  {
+    type: 'boolean',
+    name: 'lock_unlock_enabled',
+    label: 'Enable both Lock and Unlock (if off, only Lock is enabled)',
+    defaultValue: false
+  },
+]);
+
+async function toggleCommentLock(
+  event: { targetId: any },
+  context: { reddit: any; ui: any; settings: any }
+) {
   const { targetId } = event;
-  const { reddit, ui } = context;
+  const { reddit, ui, settings } = context;
 
   try {
     const post = await reddit.getPostById(targetId);
-
     const author = await post.getAuthor();
-
     const currentUser = await reddit.getCurrentUser();
-
     const lockStatus = post.isLocked();
 
+    // Get the boolean setting
+    const lockUnlockEnabled = await settings.get('lock_unlock_enabled');
 
     if (author.id === currentUser.id) {
       if (lockStatus) {
-        await post.unlock();
-        ui.showToast("Comments unlocked successfully");
+        if (lockUnlockEnabled) {
+          await post.unlock();
+          ui.showToast("Comments unlocked successfully");
+        } else {
+          ui.showToast("Unlocking comments by Author is disabled by the moderators.");
+        }
       } else {
         await post.lock();
         ui.showToast("Comments locked successfully");
